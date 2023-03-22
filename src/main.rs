@@ -170,14 +170,22 @@ fn transform_by_look_at(look_at: Matrix44, vec: Vec3) -> Vec3 {
 */
 
 enum IntersectionResult {
-    Hit([u8; 3]),
+    Hit {
+        point: Vec3,
+        normal: Vec3,
+        t: f64,
+    },
     Miss,
 }
 
-struct IntersectionCtx;
+struct IntersectionCtx {
+    //t_min: f64,
+    //t_max: f64, TODO: Add
+    hit_record: Vec<Box<dyn Intersectable>>
+}
 
 trait Intersectable {
-    fn intersects(self, ray: Ray, ctx: IntersectionCtx) -> IntersectionResult;
+    fn intersect(self, ray: Ray, ctx: IntersectionCtx) -> IntersectionResult;
 }
 
 #[derive(Copy, Clone)]
@@ -192,7 +200,7 @@ struct Triangle {
 }
 
 impl Intersectable for Sphere {
-    fn intersects(self, ray: Ray, _ctx: IntersectionCtx) -> IntersectionResult {
+    fn intersect(self, ray: Ray, _ctx: IntersectionCtx) -> IntersectionResult {
         let a = ray.direction.scalar_mul(ray.direction); // D^2
         let b = 2.0 * ray.direction.scalar_mul(ray.origin - self.position); // 2D(O-C)
 
@@ -201,23 +209,35 @@ impl Intersectable for Sphere {
 
         let delta = b * b - 4.0 * a * c;
 
+        let t = f64::max((-b + delta.sqrt())/2.0*a, (-b - delta.sqrt())/2.0*a);
+
         const THRESHOLD: f64 = 0.03;
-
-        let t = f64::max((-b + (b*b-4.0*a*c).sqrt())/2.0*a, (-b - (b*b-4.0*a*c).sqrt())/2.0*a);
-
-        let t = t / 10.;
-
         match delta {
-            x if x > -THRESHOLD && x < THRESHOLD && t > 0. => Hit([156, 255, 120]), // hit in one point;  green
-            x if x > THRESHOLD && t > 0. => Hit([255, 0, 120].map(|x| (x as f64 * t / 3.) as u8 * 6)), // intersect in two point; red
-            x if x < -THRESHOLD => Miss, // hit in no points
+            // TODO: re-add functionality for edge detection
+            /*x if x > -THRESHOLD && x < THRESHOLD && t > 0. => Hit(
+                [156, 255, 120]
+            ), // hit in one point;  green
+            x if x > THRESHOLD && t > 0. => {
+                let n = (ray.at(t) - self.position).normalize();
+                let n = 255. * (0.5 * (Vec3([1.,1.,1.]) + n));
+                Hit(n.0.map(|x| x as u8))
+            }, // intersect in two point; normal colouring
+            x if x < -THRESHOLD => Miss, // hit in no points*/
+            x if x > 0. && t > 0.0 => {
+                let point = ray.at(t);
+                Hit {
+                    point,
+                    normal: (point - self.position).normalize(),
+                    t,
+                }
+            }
             _ => Miss
         }
     }
 }
 
 impl Intersectable for Triangle {
-    fn intersects(self, ray: Ray, _ctx: IntersectionCtx) -> IntersectionResult {
+    fn intersect(self, ray: Ray, _ctx: IntersectionCtx) -> IntersectionResult {
         let plane_normal = {
             let a = self.vertices[1] - self.vertices[0];
             let b = self.vertices[2] - self.vertices[0];
@@ -252,7 +272,11 @@ impl Intersectable for Triangle {
         ].map(|x| plane_normal.scalar_mul(x));
 
         if q.iter().all(|x: &f64| x > &0.0) {
-            Hit([23, 60, 60].map(|x| (x as f64 * t) as u8 * 4))
+            Hit {
+                t,
+                point: ray.at(t),
+                normal: plane_normal
+            }
         } else {
             Miss
         }
@@ -269,9 +293,9 @@ fn main() {
     let dim @ (width, height) = img.dimensions();
 
     let mut cam = Camera {
-        aperture: Vec3([0., 0., 0.]).normalize(),
-        direction: Vec3([0.0, 0.0, -1.]),
-        up: Vec3([1., 0., 0.]),
+        aperture: Vec3([0., 0., 70.]).normalize(),
+        direction: Vec3([0.0, 1.0, -1.]).normalize(),
+        up: Vec3([0., 0., 1.]),
         fov: 60.0, // make arbitrary
         frame: img,
     };
@@ -310,16 +334,26 @@ fn main() {
             };
 
             let ray = Ray { origin, direction };
-            let mut col = match object0.intersects(ray, IntersectionCtx) {
-                Hit(col) => {/*print!("#");*/ col},
+
+            let ctx = IntersectionCtx {
+                hit_record: vec![],
+            };
+
+            let mut col = match object1.intersect(ray, ctx) {
+                Hit{ normal, .. } => {
+                    (0.5 * (Vec3([1.,1.,1.]) + normal)).0
+                        .map(|x: f64| x * 255.)
+                        .map(|x| x as u8)
+                },
                 Miss => {/*print!("*"); */[54, 81, 94]},
             };
+            /*
             let ray = Ray { origin, direction };
             col = match object1.intersects(ray, IntersectionCtx) {
                 Hit(col) => {/*print!("#");*/ col},
                 Miss => {col},
             };
-
+            */
             //print!("{} ", pixel.0[0]);
             cam.frame.put_pixel(x, y, Rgb(col));
         }
@@ -328,5 +362,5 @@ fn main() {
     println!("\nFinished with rendering:)");
 
     // ppm as output is faster than png
-    cam.frame.save("images/tmp.ppm").unwrap();
+    cam.frame.save("images/sphere_col.png").unwrap();
 }
