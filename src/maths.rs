@@ -1,22 +1,32 @@
 use std::ops::{Add, Mul, Sub};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Vec3([f64; 3]);
+pub struct Vec2(pub [f64; 2]);
+
+impl Vec2 {
+    pub fn x(&self) -> f64 {
+        self.0[0]
+    }
+    pub fn y(&self) -> f64 {
+        self.0[1]
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Vec3(pub [f64; 3]);
 
 impl Vec3 {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Vec3([x, y, z])
+    }
+
     pub fn length(&self) -> f64 {
         self.0.map(|x| x * x).iter().sum::<f64>().sqrt()
     }
 
     pub fn normalize(&self) -> Self {
         let length = self.length();
-        Self(self.0.map(|x| {
-            if length == 0. {
-                0.
-            } else {
-                x / length
-            }
-        }))
+        Self(self.0.map(|x| if length == 0. { 0. } else { x / length }))
     }
 
     pub fn abs(&self) -> Self {
@@ -32,9 +42,15 @@ impl Vec3 {
         Vec3([v.x, v.y, v.z])
     }
 
-    fn x(&self) -> f64 {self.0[0]}
-    fn y(&self) -> f64 {self.0[1]}
-    fn z(&self) -> f64 {self.0[2]}
+    fn x(&self) -> f64 {
+        self.0[0]
+    }
+    fn y(&self) -> f64 {
+        self.0[1]
+    }
+    fn z(&self) -> f64 {
+        self.0[2]
+    }
 }
 
 impl Sub<Vec3> for Vec3 {

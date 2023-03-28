@@ -6,7 +6,11 @@ use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage};
 //use std::ops::{Add, Mul, Sub};
 //use cgmath::{Matrix4, One, Point3, Vector3, Vector4};
 //use cgmath::num_traits::FloatConst;
+use crate::camera::Camera;
+use crate::maths::{Vec2, Vec3};
+use crate::ray::{CameraFovDirection, PinholePerspective, RayGenerator};
 use indicatif::ProgressIterator;
+use crate::intersections::{Geometry, Intersect, IntersectionResult, Sphere};
 
 /*
 
@@ -96,119 +100,7 @@ fn transform_by_look_at(look_at: Matrix44, vec: Vec3) -> Vec3 {
 }
 */
 
-enum IntersectionResult {
-    Hit {
-        point: Vec3,
-        normal: Vec3,
-        t: f64,
-    },
-    Miss,
-}
 
-struct IntersectionCtx {
-    //t_min: f64,
-    //t_max: f64, TODO: Add
-    hit_record: Vec<Box<dyn Intersectable>>
-}
-
-trait Intersectable {
-    fn intersect(self, ray: Ray, ctx: IntersectionCtx) -> IntersectionResult;
-}
-
-#[derive(Copy, Clone)]
-struct Sphere {
-    radius: f64,
-    position: Vec3,
-}
-
-#[derive(Copy, Clone)]
-struct Triangle {
-    vertices: [Vec3; 3],
-}
-
-impl Intersectable for Sphere {
-    fn intersect(self, ray: Ray, _ctx: IntersectionCtx) -> IntersectionResult {
-        let a = ray.direction.scalar_mul(ray.direction); // D^2
-        let b = 2.0 * ray.direction.scalar_mul(ray.origin - self.position); // 2D(O-C)
-
-        let tmp = (ray.origin - self.position).abs();
-        let c = (tmp.scalar_mul(tmp)) - (self.radius * self.radius); // |O-C|^2 - R^2
-
-        let delta = b * b - 4.0 * a * c;
-
-        let t = f64::max((-b + delta.sqrt())/2.0*a, (-b - delta.sqrt())/2.0*a);
-
-        const THRESHOLD: f64 = 0.03;
-        match delta {
-            // TODO: re-add functionality for edge detection
-            /*x if x > -THRESHOLD && x < THRESHOLD && t > 0. => Hit(
-                [156, 255, 120]
-            ), // hit in one point;  green
-            x if x > THRESHOLD && t > 0. => {
-                let n = (ray.at(t) - self.position).normalize();
-                let n = 255. * (0.5 * (Vec3([1.,1.,1.]) + n));
-                Hit(n.0.map(|x| x as u8))
-            }, // intersect in two point; normal colouring
-            x if x < -THRESHOLD => Miss, // hit in no points*/
-            x if x > 0. && t > 0.0 => {
-                let point = ray.at(t);
-                Hit {
-                    point,
-                    normal: (point - self.position).normalize(),
-                    t,
-                }
-            }
-            _ => Miss
-        }
-    }
-}
-
-impl Intersectable for Triangle {
-    fn intersect(self, ray: Ray, _ctx: IntersectionCtx) -> IntersectionResult {
-        let plane_normal = {
-            let a = self.vertices[1] - self.vertices[0];
-            let b = self.vertices[2] - self.vertices[0];
-            let c = a.cross(b);
-            c.normalize()
-        };
-
-        let distance = plane_normal.scalar_mul(self.vertices[0]);
-
-        let t = - ((plane_normal.scalar_mul(ray.origin) + distance) /
-            plane_normal.scalar_mul(ray.direction));
-
-        let p = ray.origin + (ray.direction * t);
-
-
-        let edges = [
-            self.vertices[1] - self.vertices[0],
-            self.vertices[2] - self.vertices[1],
-            self.vertices[0] - self.vertices[2]
-        ];
-
-        let c = [
-            p - self.vertices[0],
-            p - self.vertices[1],
-            p - self.vertices[2]
-        ];
-
-        let q = [
-            edges[0].cross(c[0]),
-            edges[1].cross(c[1]),
-            edges[2].cross(c[2])
-        ].map(|x| plane_normal.scalar_mul(x));
-
-        if q.iter().all(|x: &f64| x > &0.0) {
-            Hit {
-                t,
-                point: ray.at(t),
-                normal: plane_normal
-            }
-        } else {
-            Miss
-        }
-    }
-}
 
 // source for intersections: https://www.lighthouse3d.com/tutorials/maths/*
 
@@ -293,26 +185,77 @@ fn main() {
 */
 
 mod camera;
+mod intersections;
 mod maths;
 mod ray;
 
 fn main() -> image::error::ImageResult<()> {
     // Create image and get the dimensions
-    let mut img: RgbImage = ImageBuffer::new(2560/2, 1440/2);
+    let mut img: RgbImage = ImageBuffer::new(2560 / 2, 1440 / 2);
     let dim @ (width, height) = img.dimensions();
 
     println!("Ray-tracing..");
 
+    let cam = Camera {
+        position: Vec3([0., 0., 0.]),
+        direction: Vec3([0., 0., -1.]),
+        up: Vec3([0., 1., 0.]),
+        fov: 0.0,
+    };
+
+    let sphere = Sphere {
+        radius: 0.3,
+        position: Vec3([0.0,0.,-2.0]),
+    };
+
+    let spheres = (1..9).map(|x| {
+            let x = x as f64;
+            Sphere {
+                radius: 0.3,
+                position: Vec3([x / 3., 0.,(-2. - x / 4.)])
+            }
+        }).collect::<Vec<Sphere>>();
+
+    let objects = spheres.iter().map(|x| x as &dyn Intersect).collect();
+
+    let geom = Geometry {
+        objects
+    };
+
     for px_y in (0..height).progress() {
         for px_x in 0..width {
             let (x, y) = (px_x as f64, px_y as f64);
-            let color = Rgb(
-                [x/y, y/x, 0.]
-                    .map(|i| f64::max(0., f64::min(1., i)) * 255.)
-                    .map(|i| i as u8));
+            let color = [x / y, y / x, 0.]
+                .map(|i| f64::max(0., f64::min(1., i)) * 255.)
+                .map(|i| i as u8);
 
+            let perspective = PinholePerspective {
+                camera_fov: 0.785398,
+                fov_dir: CameraFovDirection::Horizontal,
+                image_size: Vec2([dim.0 as f64, dim.1 as f64]),
+            };
 
-            img.put_pixel(px_x, px_y, color);
+            let pixel = Vec2([x, y]);//.map(|i| ( i + 0.5) * 2. - 1.));
+
+            let ray = perspective.gen_ray(pixel);
+
+            let ray_w = cam.ray_cam_to_world(ray.clone());
+            //dbg!(x, y, &ray, &ray_w);
+
+            let res = geom.intersect(ray_w);
+
+            let col = match res {
+                IntersectionResult::Hit { point, normal, t } => {
+                    let mut  m = normal.0.map(|i| (i * 255.));
+                    m[2] *= -1.;
+                    m.map(|i| i as u8)
+                },
+                IntersectionResult::Miss => {
+                    [0xA3, 0xE4, 0xD7]
+                },
+            };
+
+            img.put_pixel(px_x, px_y, Rgb(col));
         }
     }
 
