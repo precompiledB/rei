@@ -47,9 +47,9 @@ fn main() -> image::error::ImageResult<()> {
 
     let tri = Triangle {
         vertices: [
-            Vec3([0., 0.2, 3.0]),
-            Vec3([0.2, 0.2, 3.0]),
-            Vec3([0.2, 0., 3.0]),
+            Vec3([0.2, 0.2, -1.8]),
+            Vec3([0., 0.2, -2.0]),
+            Vec3([0.2, 0., -2.2]),
         ],
     };
 
@@ -81,8 +81,9 @@ fn main() -> image::error::ImageResult<()> {
 
             let col = match res {
                 IntersectionResult::Hit { point, normal, t } => {
-                    let mut  m = normal.0.map(|i| (i * 255.));
-                    m[2] *= -1.;
+                    //dbg!(normal);
+                    let m = normal.0.map(|i| (i * 255.));
+                    
                     m.map(|i| i as u8)
                 },
                 IntersectionResult::Miss => {
