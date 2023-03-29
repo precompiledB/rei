@@ -24,6 +24,8 @@ impl Camera {
         let up = Vector3::from(up.0);
         let forward = Vector3::from(forward.0);
 
+        // lecture : i need from rows
+        // todo: re-visit the camera, look how OpenGl does it (lectures: there's a link)
         let cam_rot = Matrix3::from_cols(right, up, -forward);
         let cam_translation = -cam_rot * Vector3::from(self.position.0);
 

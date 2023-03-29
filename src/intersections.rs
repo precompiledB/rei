@@ -77,7 +77,11 @@ impl Intersect for Sphere {
 }
 
 impl Intersect for Triangle {
-    fn intersect(&self, ray: Ray) -> IntersectionResult {
+    /*fn intersect(&self, ray: Ray) -> IntersectionResult {
+
+
+
+
         let plane_normal = {
             let a = self.vertices[1] - self.vertices[0];
             let b = self.vertices[2] - self.vertices[0];
@@ -120,7 +124,50 @@ impl Intersect for Triangle {
         } else {
             Miss
         }
+    }*/
+
+    fn intersect(&self, ray: Ray) -> IntersectionResult {
+        // edge vectors
+        let e_1 = self.vertices[1] - self.vertices[0];
+        let e_2 = self.vertices[2] - self.vertices[0];
+
+        // face normal
+        let n = e_1.cross(e_2).normalize();
+        let q = ray.dir.cross(e_2);
+        let a = e_1.scalar_mul(q);
+
+        // Backfacing or nearly parallel?
+        
     }
+    
+    /* If ray P + tw hits triangle V[0] , V[1] , V[2] , then the
+function returns true, stores the barycentric coordinates in
+b[] , and stores the distance to the intersection in t .
+Otherwise returns false and the other output parameters are
+undefined.*/
+1 bool rayTriangleIntersect(const Point3& P, const
+Vector3& w, const Point3 V[3], float b[3], float& t) {
+// Edge vectors
+2 const Vector3& e_1 = V[1] - V[0];
+3 const Vector3& e_2 = V[2] - V[0];
+// Face normal
+4 const Vector3& n = e_1.cross(e_2).direction();
+5 const Vector3& q = w.cross(e_2);
+6 const float a = e_1.dot(q);
+// Backfacing or nearly parallel?
+7 if ((n.dot(w) >= 0) || (abs(a) <= eps)) return
+false;
+8 const Vector3& s = (P - V_0) / a;
+9 const Vector3& r = s.cross(e_1);
+10 b[0] = s.dot(q);
+11 b[1] = r.dot(w);
+12 b[2] = 1.0f - b[0] - b[1];
+// Intersected outside triangle?
+13 if ((b[0] < 0.0f) || (b[1] < 0.0f) || (b[2] <
+0.0f)) return false;
+14 t = e_2.dot(r);
+15 return (t >= 0.0f);
+16 }
 }
 
 impl<'a> Intersect for Geometry<'a> {
