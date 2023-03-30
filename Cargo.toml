@@ -9,6 +9,5 @@ edition = "2021"
 cgmath = "0.18.0"
 image = "0.24.5"
 indicatif = "0.17.3"
-test_gltf = { path = "../test_gltf" }
-gltf = { version = "1.1.0", features = ["names", "KHR_materials_ior", 
-"KHR_materials_transmission"] }
+#test_gltf = { path = "../test_gltf" }
+gltf = { version = "1.1.0", features = ["names", "KHR_materials_ior", "KHR_materials_transmission"] }

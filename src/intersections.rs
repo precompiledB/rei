@@ -30,7 +30,7 @@ pub struct Sphere {
     pub position: Vec3,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Triangle {
     pub vertices: [Vec3; 3],
 }
