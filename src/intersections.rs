@@ -142,7 +142,7 @@ impl Intersect for Triangle {
         // Backfacing or nearly parallel?
         if (n.scalar_mul(ray.dir) >= 0.) || (a.abs() <= 1e-10) 
         {
-            print!("a");
+            //print!("█");
             return Miss;
         }
         
@@ -157,7 +157,7 @@ impl Intersect for Triangle {
 
         // Intersected outside triangle?
         if b.iter().any(|x| *x < 0. || *x > 1.) {
-            print!("b");
+            //print!("░");
             return Miss;
         }
         let t = e_2.scalar_mul(r);

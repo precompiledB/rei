@@ -1,3 +1,6 @@
+use std::path::Path;
+
+use gltf::mesh::util::ReadIndices;
 use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage};
 use crate::camera::Camera;
 use crate::maths::{Vec2, Vec3};
@@ -15,6 +18,73 @@ mod camera;
 mod intersections;
 mod maths;
 mod ray;
+
+fn read_gltf_data() -> Vec<Triangle> {
+    let path = Path::new("models/plane.gltf");
+
+    let (document, buffers, images) = gltf::import(path).unwrap();
+
+    let (mut vertices, mut indices) = (Vec::new(), Vec::new());
+
+    for mesh in document.meshes() {
+        for primitive in mesh.primitives() {
+            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+            if let Some(it) = reader.read_positions() {
+                for [x, y, z] in it {
+                    vertices.push((x, y, z));
+
+                    let output = format!("vtx {} {} {}\n", x, y, z);
+                    dbg!(&output);
+                }
+            }
+            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+            if let Some(it) = reader.read_indices() {
+                if let ReadIndices::U16(it) = it {
+                    let chunks = it.collect::<Vec<_>>();
+                    let chunks = chunks.chunks_exact(3);
+                    for c in chunks.clone().into_iter() {
+                        let output = format!("idx {} {} {}\n", c[0], c[1], c[2]);
+                        dbg!(&output);
+                        indices.push((c[0], c[1], c[2]));
+                    }
+                    assert!(chunks.remainder().is_empty());
+                }
+            } else {
+                dbg!("NO");
+            }
+
+            let colour = primitive.material().pbr_metallic_roughness().base_color_factor();
+            dbg!(colour);
+
+            if let Some(texture) = primitive.material().pbr_metallic_roughness().base_color_texture(){
+                let image = &images[texture.texture().index()];
+
+                let data: ImageBuffer<Rgb<u8>, _> = image::ImageBuffer::from_raw(image.width, image.height, image.pixels.clone()).unwrap();
+
+                data.save("test.jpg").unwrap();
+            }
+
+            dbg!(primitive.material().ior());
+            dbg!(primitive.material().transmission().and_then(|x| Some(x.transmission_factor())));
+        }
+    }
+
+    let mut tris = Vec::new();
+    for i in indices {
+        let t = Triangle {
+            vertices: [
+                vertices[i.0 as usize],
+                vertices[i.1 as usize],
+                vertices[i.2 as usize],
+            ]
+            .map(|v| (v.0, v.1 - 0.1, v.2))
+            .map(|v| Vec3([v.0 as f64, v.1 as f64, v.2 as f64]))
+        };
+        tris.push(t);
+    }
+
+    tris
+}
 
 fn main() -> image::error::ImageResult<()> {
     // Create image and get the dimensions
@@ -52,9 +122,14 @@ fn main() -> image::error::ImageResult<()> {
             Vec3([0.2, 0., -2.2]),
         ],
     };
-
+    /*
     let geom = Geometry {
         objects: vec![&tri]
+    };*/
+
+    let tris = read_gltf_data();
+    let geom = Geometry {
+        objects: tris.iter().map(|t| t as &dyn Intersect).collect()
     };
 
     for px_y in (0..height).progress() {
