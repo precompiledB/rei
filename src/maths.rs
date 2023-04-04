@@ -42,13 +42,13 @@ impl Vec3 {
         Vec3([v.x, v.y, v.z])
     }
 
-    fn x(&self) -> f64 {
+    pub fn x(&self) -> f64 {
         self.0[0]
     }
-    fn y(&self) -> f64 {
+    pub fn y(&self) -> f64 {
         self.0[1]
     }
-    fn z(&self) -> f64 {
+    pub fn z(&self) -> f64 {
         self.0[2]
     }
 }

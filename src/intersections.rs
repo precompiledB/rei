@@ -1,4 +1,5 @@
 use IntersectionResult::{Hit, Miss};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use crate::maths::Vec3;
 use crate::ray::Ray;
 
@@ -37,6 +38,10 @@ pub struct Triangle {
 
 pub struct Geometry<'a> {
     pub objects: Vec<&'a dyn Intersect>
+}
+
+pub struct TriGeometry {
+    pub objects: Vec<Triangle>
 }
 
 impl Intersect for Sphere {
@@ -140,7 +145,7 @@ impl Intersect for Triangle {
         let a = e_1.scalar_mul(q);
 
         // Backfacing or nearly parallel?
-        if (n.scalar_mul(ray.dir) >= 0.) || (a.abs() <= 1e-10) 
+        if /*(n.scalar_mul(ray.dir) >= 0.) ||*/ (a.abs() <= 1e-10) 
         {
             //print!("█");
             return Miss;
@@ -191,6 +196,38 @@ impl<'a> Intersect for Geometry<'a> {
                 let t_2 = b.2;
                 t_1.total_cmp(&t_2)
             });
+
+        if let Some(_) = res {
+            //print!("#");
+        }
+
+        match res {
+            Some((point, normal, t)) => Hit { point, normal, t },
+            None => Miss
+        }
+    }
+}
+
+impl Intersect for TriGeometry {
+    fn intersect(&self, ray: Ray) -> IntersectionResult {
+        let res = self.objects.par_iter()
+            .map(|obj| obj.intersect(ray.clone()))
+            .filter_map(|r| match r {
+                Hit { point, normal, t } => Some((point, normal, t)),
+                Miss => None,
+            })
+            .filter(|(_p, _n, t)|
+                    *t >= ray.min && *t <= ray.max
+            )
+            .min_by(|a, b| {
+                let t_1 = a.2;
+                let t_2 = b.2;
+                t_1.total_cmp(&t_2)
+            });
+
+        if let Some(_) = res {
+            //print!("#");
+        }
 
         match res {
             Some((point, normal, t)) => Hit { point, normal, t },

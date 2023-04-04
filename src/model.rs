@@ -1,19 +1,34 @@
 use std::path::Path;
 
-use cgmath::{Matrix4, Vector4};
+use cgmath::{Matrix4, Vector4, SquareMatrix};
 use gltf::mesh::util::ReadIndices;
 
 use crate::{intersections::Triangle, maths::Vec3};
 
-pub fn read_gltf_data() -> Vec<Triangle> {
-    let path = Path::new("models/cubes.gltf");
+pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
+    let path = Path::new(path.as_ref());
 
-    let (document, buffers, images) = gltf::import(path).unwrap();
+    let (document, buffers, _images) = gltf::import(path).unwrap();
 
-    let (mut vertices, mut indices) = (Vec::new(), Vec::new());
+    let mut tris = Vec::new();
+    
+    dbg!(document.meshes().len());
+    
+    for (idx, mesh) in document.meshes().enumerate() {
+        let (mut vertices, mut indices) = (Vec::new(), Vec::new());
+        
+        dbg!(idx);
 
-    for mesh in document.meshes() {
-        let transform = document.nodes().skip(mesh.index()).next().unwrap().transform().matrix();
+        let current_node = document.nodes().nth(mesh.index());
+        let transform = current_node.clone().unwrap().transform();
+
+        if Matrix4::from(current_node.unwrap().transform().matrix()).determinant() > 0. {
+            println!("CCW");
+        } else {
+            println!("CW");
+        }
+        dbg!(mesh.name());
+        dbg!(mesh.primitives().len());
 
         for primitive in mesh.primitives() {
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -21,9 +36,13 @@ pub fn read_gltf_data() -> Vec<Triangle> {
                 for [x, y, z] in it {
                     let v = Vector4::from([x, y, z, 1.]);
 
-                    let nv = Matrix4::from(transform) * v;
+                    let transf = Matrix4::from(transform.clone().matrix());
 
-                    vertices.push((x, y, z));
+                    let nv = transf * v;
+                    // NOTE: z and y swapped
+                    let nv = Vec3([nv.x, nv.z, nv.y].map(|a| a as f64));
+
+                    vertices.push((nv.x(), nv.y(), nv.z()));
 
                     let output = format!("vtx {} {} {}\n", x, y, z);
                     dbg!(&output);
@@ -34,7 +53,7 @@ pub fn read_gltf_data() -> Vec<Triangle> {
                 if let ReadIndices::U16(it) = it {
                     let chunks = it.collect::<Vec<_>>();
                     let chunks = chunks.chunks_exact(3);
-                    for c in chunks.clone().into_iter() {
+                    for c in chunks.clone() {
                         let output = format!("idx {} {} {}\n", c[0], c[1], c[2]);
                         dbg!(&output);
                         indices.push((c[0], c[1], c[2]));
@@ -46,7 +65,7 @@ pub fn read_gltf_data() -> Vec<Triangle> {
             }
 
             let colour = primitive.material().pbr_metallic_roughness().base_color_factor();
-            dbg!(colour);
+            //dbg!(colour);
 
             /*
             if let Some(texture) = primitive.material().pbr_metallic_roughness().base_color_texture(){
@@ -60,21 +79,21 @@ pub fn read_gltf_data() -> Vec<Triangle> {
             dbg!(primitive.material().ior());
             dbg!(primitive.material().transmission().and_then(|x| Some(x.transmission_factor())));
         }
+
+        for i in indices {
+            let t = Triangle {
+                vertices: [
+                    vertices[i.0 as usize],
+                    vertices[i.1 as usize],
+                    vertices[i.2 as usize],
+                ]
+                .map(|v| (v.0, v.1, v.2))
+                .map(|v| Vec3([v.0 as f64, v.1 as f64, v.2 as f64]))
+            };
+            tris.push(t);
+        }
     }
 
-    let mut tris = Vec::new();
-    for i in indices {
-        let t = Triangle {
-            vertices: [
-                vertices[i.0 as usize],
-                vertices[i.1 as usize],
-                vertices[i.2 as usize],
-            ]
-            .map(|v| (v.0, v.1, v.2))
-            .map(|v| Vec3([v.0 as f64, v.1 as f64, v.2 as f64]))
-        };
-        tris.push(t);
-    }
-
-    dbg!(tris)
+    //dbg!(tris)
+    tris
 }

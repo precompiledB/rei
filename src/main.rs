@@ -1,12 +1,10 @@
-use std::path::Path;
-
-use gltf::mesh::util::ReadIndices;
 use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage};
 use crate::camera::Camera;
 use crate::maths::{Vec2, Vec3};
 use crate::ray::{CameraFovDirection, PinholePerspective, RayGenerator};
 use indicatif::ProgressIterator;
-use crate::intersections::{Geometry, Intersect, IntersectionResult, Sphere, Triangle};
+use crate::intersections::{Geometry, Intersect, IntersectionResult, Sphere, Triangle, TriGeometry};
+use rayon::prelude::*;
 
 // https://raytracing.github.io/books/RayTracingInOneWeekend.html#rays,asimplecamera,andbackground/therayclass
 // https://stackoverflow.com/questions/349050/calculating-a-lookat-matrix
@@ -40,13 +38,16 @@ fn main() -> image::error::ImageResult<()> {
         position: Vec3([0.0,0.,-2.0]),
     };
 
-    let spheres = (1..9).map(|x| {
+    let spheres = (-2..=6).map(|x| {
             let x = x as f64;
-            Sphere {
-                radius: 0.3,
-                position: Vec3([x / 3., 0.,(-2. - x / 4.)])
+            Triangle {
+                vertices: [
+                    Vec3([-0.5, 0.5+x, -15.]),
+                    Vec3([-0.5, -0.5+x, -15.]),
+                    Vec3([0.5, 0.+x, -15.]),
+                ],
             }
-        }).collect::<Vec<Sphere>>();
+        }).collect::<Vec<Triangle>>();
 
     let objects: Vec<_> = spheres.iter().map(|x| x as &dyn Intersect).collect();
 
@@ -62,10 +63,11 @@ fn main() -> image::error::ImageResult<()> {
         objects: vec![&tri]
     };*/
 
-    let tris = model::read_gltf_data();
-    let geom = Geometry {
-        objects: tris.iter().map(|t| t as &dyn Intersect).collect()
+    let tris = model::load_from_gltf("models/spheres.gltf");
+    let geom = TriGeometry {
+        objects: tris
     };
+
 
     for px_y in (0..height).progress() {
         for px_x in 0..width {
@@ -92,8 +94,8 @@ fn main() -> image::error::ImageResult<()> {
             let col = match res {
                 IntersectionResult::Hit { point, normal, t } => {
                     //dbg!(normal);
-                    let m = normal.0.map(|i| (i * 255.));
-                    
+                    let mut m = normal.0.map(|i| (i * 255.));
+                    m[2] *= -1.;
                     m.map(|i| i as u8)
                 },
                 IntersectionResult::Miss => {

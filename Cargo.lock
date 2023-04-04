@@ -566,6 +566,7 @@ dependencies = [
  "gltf",
  "image",
  "indicatif",
+ "rayon",
 ]
 
 [[package]]
