@@ -1,14 +1,10 @@
-use IntersectionResult::{Hit, Miss};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use crate::maths::Vec3;
 use crate::ray::Ray;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use IntersectionResult::{Hit, Miss};
 
 pub enum IntersectionResult {
-    Hit {
-        point: Vec3,
-        normal: Vec3,
-        t: f64,
-    },
+    Hit { point: Vec3, normal: Vec3, t: f64, color: [u8; 3]},
     Miss,
 }
 
@@ -22,7 +18,7 @@ pub struct IntersectionCtx {
 */
 
 pub trait Intersect {
-    fn intersect(&self, ray: Ray) -> IntersectionResult;
+    fn intersect(&self, ray: &Ray) -> IntersectionResult;
 }
 
 #[derive(Copy, Clone)]
@@ -34,18 +30,19 @@ pub struct Sphere {
 #[derive(Copy, Clone, Debug)]
 pub struct Triangle {
     pub vertices: [Vec3; 3],
+    pub col: [u8; 3],
 }
 
 pub struct Geometry<'a> {
-    pub objects: Vec<&'a dyn Intersect>
+    pub objects: Vec<&'a dyn Intersect>,
 }
 
 pub struct TriGeometry {
-    pub objects: Vec<Triangle>
+    pub objects: Vec<Triangle>,
 }
 
 impl Intersect for Sphere {
-    fn intersect(&self, ray: Ray) -> IntersectionResult {
+    fn intersect(&self, ray: &Ray) -> IntersectionResult {
         let a = ray.dir.scalar_mul(ray.dir); // D^2
         let b = 2.0 * ray.dir.scalar_mul(ray.pos - self.position); // 2D(O-C)
 
@@ -54,7 +51,7 @@ impl Intersect for Sphere {
 
         let delta = b * b - 4.0 * a * c;
 
-        let t = f64::min((-b + delta.sqrt())/2.0*a, (-b - delta.sqrt())/2.0*a);
+        let t = f64::min((-b + delta.sqrt()) / 2.0 * a, (-b - delta.sqrt()) / 2.0 * a);
 
         const THRESHOLD: f64 = 0.03;
         match delta {
@@ -74,9 +71,10 @@ impl Intersect for Sphere {
                     point,
                     normal: (point - self.position).normalize(),
                     t,
+                    color: [0xd3, 0x68, 0x7d]
                 }
             }
-            _ => Miss
+            _ => Miss,
         }
     }
 }
@@ -132,7 +130,7 @@ impl Intersect for Triangle {
     }*/
 
     // https://graphicscodex.com/Sample2-RayTriangleIntersection.pdf
-    fn intersect(&self, ray: Ray) -> IntersectionResult {
+    fn intersect(&self, ray: &Ray) -> IntersectionResult {
         let eps = 1e-4;
 
         // edge vectors
@@ -145,17 +143,18 @@ impl Intersect for Triangle {
         let a = e_1.scalar_mul(q);
 
         // Backfacing or nearly parallel?
-        if /*(n.scalar_mul(ray.dir) >= 0.) ||*/ (a.abs() <= 1e-10) 
-        {
+        if
+        /*(n.scalar_mul(ray.dir) >= 0.) ||*/
+        (a.abs() <= 1e-10) {
             //print!("█");
             return Miss;
         }
-        
-        // Barycentric coordinates
-        let s = (ray.pos - self.vertices[0]) * (1./a);
-        let  r = s.cross(e_1);
 
-        let mut b = [0.;3];
+        // Barycentric coordinates
+        let s = (ray.pos - self.vertices[0]) * (1. / a);
+        let r = s.cross(e_1);
+
+        let mut b = [0.; 3];
         b[0] = s.scalar_mul(q);
         b[1] = r.scalar_mul(ray.dir);
         b[2] = 1.0 - b[0] - b[1];
@@ -168,57 +167,58 @@ impl Intersect for Triangle {
         let t = e_2.scalar_mul(r);
         match t >= 0. {
             // Hit
-            true => Hit { point: ray.at(t), normal: n, t },
+            true => Hit {
+                point: ray.at(t),
+                normal: n,
+                t,
+                color: self.col
+            },
             // Miss
-            false => Miss
+            false => Miss,
         }
     }
 }
-    /* If ray P + tw hits triangle V[0] , V[1] , V[2] , then the
+/* If ray P + tw hits triangle V[0] , V[1] , V[2] , then the
 function returns true, stores the barycentric coordinates in
 b[] , and stores the distance to the intersection in t .
 Otherwise returns false and the other output parameters are
 undefined.*/
 
 impl<'a> Intersect for Geometry<'a> {
-    fn intersect(&self, ray: Ray) -> IntersectionResult {
-        let res = self.objects.iter()
-            .map(|obj| obj.intersect(ray.clone()))
+    fn intersect(&self, ray: &Ray) -> IntersectionResult {
+        let res = self
+            .objects
+            .iter()
+            .map(|obj| obj.intersect(&ray))
             .filter_map(|r| match r {
-                Hit { point, normal, t } => Some((point, normal, t)),
+                Hit { point, normal, t, color} => Some((point, normal, t, color)),
                 Miss => None,
             })
-            .filter(|(_p, _n, t)|
-                    *t >= ray.min && *t <= ray.max
-            )
+            .filter(|(_p, _n, t, color)| *t >= ray.min && *t <= ray.max)
             .min_by(|a, b| {
                 let t_1 = a.2;
                 let t_2 = b.2;
                 t_1.total_cmp(&t_2)
             });
 
-        if let Some(_) = res {
-            //print!("#");
-        }
-
         match res {
-            Some((point, normal, t)) => Hit { point, normal, t },
-            None => Miss
+            Some((point, normal, t, color)) => Hit { point, normal, t, color },
+            None => Miss,
         }
     }
 }
 
 impl Intersect for TriGeometry {
-    fn intersect(&self, ray: Ray) -> IntersectionResult {
-        let res = self.objects.par_iter()
-            .map(|obj| obj.intersect(ray.clone()))
+    fn intersect(&self, ray: &Ray) -> IntersectionResult {
+        let res = self
+            .objects
+            .par_iter()
+            .map(|obj| obj.intersect(ray))
             .filter_map(|r| match r {
-                Hit { point, normal, t } => Some((point, normal, t)),
+                Hit { point, normal, t, color } => Some((point, normal, t, color)),
                 Miss => None,
             })
-            .filter(|(_p, _n, t)|
-                    *t >= ray.min && *t <= ray.max
-            )
+            .filter(|(_p, _n, t, color)| *t >= ray.min && *t <= ray.max)
             .min_by(|a, b| {
                 let t_1 = a.2;
                 let t_2 = b.2;
@@ -230,8 +230,8 @@ impl Intersect for TriGeometry {
         }
 
         match res {
-            Some((point, normal, t)) => Hit { point, normal, t },
-            None => Miss
+            Some((point, normal, t, color)) => Hit { point, normal, t, color },
+            None => Miss,
         }
     }
 }

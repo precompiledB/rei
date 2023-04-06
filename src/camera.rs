@@ -12,7 +12,7 @@ pub struct Camera {
 
 impl Camera {
     // ISBN: 978-1-4842-7185-8, page 43
-    pub fn ray_cam_to_world(&self, ray: Ray) -> Ray {
+    pub fn ray_cam_to_world(&self, ray: &Ray) -> Ray {
         let right = self.direction.cross(self.up);
         let right = right.normalize();
         let up = self.up.normalize();

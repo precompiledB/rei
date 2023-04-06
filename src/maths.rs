@@ -12,6 +12,17 @@ impl Vec2 {
     }
 }
 
+impl Add<Vec2> for Vec2 {
+    type Output = Vec2;
+
+    fn add(self, rhs: Vec2) -> Self::Output {
+        Vec2([
+            self.0[0] + rhs.0[0],
+            self.0[1] + rhs.0[1],
+        ])
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3(pub [f64; 3]);
 

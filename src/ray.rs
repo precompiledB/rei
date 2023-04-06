@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use crate::maths::{Vec2, Vec3};
 
 #[derive(Debug, Clone)]
@@ -21,8 +23,71 @@ pub enum CameraFovDirection {
     Diagonal = 2,
 }
 
+const MSAA_1: [[f64; 2]; 1] = [[0.5, 0.5]];
+const MSAA_2: [[f64; 2]; 2] = [[0.25, 0.25], [0.75, 0.75]];
+const MSAA_4: [[f64; 2]; 4] = [
+    [0.375, 0.125],
+    [0.875, 0.375],
+    [0.625, 0.875],
+    [0.125, 0.625],
+];
+const MSAA_8: [[f64; 2]; 8] = [
+    [0.5625, 0.6875],
+    [0.4375, 0.3125],
+    [0.8125, 0.4375],
+    [0.3125, 0.8125],
+    [0.1875, 0.1875],
+    [0.0625, 0.5625],
+    [0.6875, 0.0625],
+    [0.9375, 0.9375],
+];
+const MSAA_16: [[f64; 2]; 16] = [
+    [0.5625, 0.4375],
+    [0.4375, 0.6875],
+    [0.3125, 0.375],
+    [0.75, 0.5625],
+    [0.1875, 0.625],
+    [0.625, 0.1875],
+    [0.1875, 0.3125],
+    [0.6875, 0.8125],
+    [0.375, 0.125],
+    [0.5, 0.9375],
+    [0.25, 0.875],
+    [0.125, 0.25],
+    [0.0, 0.5],
+    [0.9375, 0.75],
+    [0.875, 0.0625],
+    [0.0625, 0.0],
+];
+
+const MSAA_SAMPLES: [&[[f64; 2]]; 5] = [
+    &MSAA_1,
+    &MSAA_2,
+    &MSAA_4,
+    &MSAA_8,
+    &MSAA_16,
+];
+
 pub trait RayGenerator {
     fn gen_ray(&self, pixel: Vec2) -> Ray;
+    fn gen_samples(&self, pixel: Vec2, samples: usize) -> Vec<Ray> {
+        let samples = {
+            let idx = match samples {
+                1 => 0,
+                2 => 1,
+                4 => 2,
+                8 => 3,
+                16 => 4,
+                _ => panic!("Not a valid sampling size. 2^0=1 .. 2^4=16 is supported.")
+            };
+            MSAA_SAMPLES[idx]
+        };
+        
+        samples.iter().map(|offset| {
+            let new_pixel = pixel + Vec2(*offset);
+            self.gen_ray(new_pixel)
+        }).collect()
+    }
 }
 
 pub struct PinholePerspective {
@@ -50,10 +115,7 @@ impl RayGenerator for PinholePerspective {
         ];
 
         // screen space
-        let dir2d = [
-            2.* dir2d[0] - 1.,
-            1. - (2. * dir2d[1]),
-        ];
+        let dir2d = [2. * dir2d[0] - 1., 1. - (2. * dir2d[1])];
 
         // accounting fov and arbitrary image aspect ratio
         let dir2d = [

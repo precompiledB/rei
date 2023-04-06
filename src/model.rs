@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cgmath::{Matrix4, Vector4, SquareMatrix};
+use cgmath::{Matrix4, SquareMatrix, Vector4};
 use gltf::mesh::util::ReadIndices;
 
 use crate::{intersections::Triangle, maths::Vec3};
@@ -11,12 +11,13 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
     let (document, buffers, _images) = gltf::import(path).unwrap();
 
     let mut tris = Vec::new();
-    
+
     dbg!(document.meshes().len());
-    
+
     for (idx, mesh) in document.meshes().enumerate() {
-        let (mut vertices, mut indices) = (Vec::new(), Vec::new());
-        
+        let mut vertices = Vec::new();
+        let mut indices: Vec<(u16, u16, u16, [u8;3])> = Vec::new();
+
         dbg!(idx);
 
         let current_node = document.nodes().nth(mesh.index());
@@ -48,6 +49,11 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
                     dbg!(&output);
                 }
             }
+
+            // every indices el represents one colour: associate color attributes here
+            let color = primitive.material().pbr_metallic_roughness().base_color_factor().map(|x| x * 255.).map(|x| x as u8);
+            let color = [color[0], color[1], color[2]];
+
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
             if let Some(it) = reader.read_indices() {
                 if let ReadIndices::U16(it) = it {
@@ -56,7 +62,7 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
                     for c in chunks.clone() {
                         let output = format!("idx {} {} {}\n", c[0], c[1], c[2]);
                         dbg!(&output);
-                        indices.push((c[0], c[1], c[2]));
+                        indices.push((c[0], c[1], c[2], color));
                     }
                     assert!(chunks.remainder().is_empty());
                 }
@@ -64,7 +70,10 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
                 dbg!("NO");
             }
 
-            let colour = primitive.material().pbr_metallic_roughness().base_color_factor();
+            let colour = primitive
+                .material()
+                .pbr_metallic_roughness()
+                .base_color_factor();
             //dbg!(colour);
 
             /*
@@ -77,7 +86,10 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
             }*/
 
             dbg!(primitive.material().ior());
-            dbg!(primitive.material().transmission().and_then(|x| Some(x.transmission_factor())));
+            dbg!(primitive
+                .material()
+                .transmission()
+                .and_then(|x| Some(x.transmission_factor())));
         }
 
         for i in indices {
@@ -88,7 +100,8 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
                     vertices[i.2 as usize],
                 ]
                 .map(|v| (v.0, v.1, v.2))
-                .map(|v| Vec3([v.0 as f64, v.1 as f64, v.2 as f64]))
+                .map(|v| Vec3([v.0 as f64, v.1 as f64, v.2 as f64])),
+                col: i.3,
             };
             tris.push(t);
         }
