@@ -4,7 +4,12 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use IntersectionResult::{Hit, Miss};
 
 pub enum IntersectionResult {
-    Hit { point: Vec3, normal: Vec3, t: f64, color: [u8; 3]},
+    Hit {
+        point: Vec3,
+        normal: Vec3,
+        t: f64,
+        color: [u8; 3],
+    },
     Miss,
 }
 
@@ -43,11 +48,11 @@ pub struct TriGeometry {
 
 impl Intersect for Sphere {
     fn intersect(&self, ray: &Ray) -> IntersectionResult {
-        let a = ray.dir.scalar_mul(ray.dir); // D^2
-        let b = 2.0 * ray.dir.scalar_mul(ray.pos - self.position); // 2D(O-C)
+        let a = ray.dir.dotp(ray.dir); // D^2
+        let b = 2.0 * ray.dir.dotp(ray.pos - self.position); // 2D(O-C)
 
         let tmp = (ray.pos - self.position).abs();
-        let c = (tmp.scalar_mul(tmp)) - (self.radius * self.radius); // |O-C|^2 - R^2
+        let c = (tmp.dotp(tmp)) - (self.radius * self.radius); // |O-C|^2 - R^2
 
         let delta = b * b - 4.0 * a * c;
 
@@ -71,7 +76,7 @@ impl Intersect for Sphere {
                     point,
                     normal: (point - self.position).normalize(),
                     t,
-                    color: [0xd3, 0x68, 0x7d]
+                    color: [0xd3, 0x68, 0x7d],
                 }
             }
             _ => Miss,
@@ -140,7 +145,7 @@ impl Intersect for Triangle {
         // face normal
         let n = e_1.cross(e_2).normalize();
         let q = ray.dir.cross(e_2);
-        let a = e_1.scalar_mul(q);
+        let a = e_1.dotp(q);
 
         // Backfacing or nearly parallel?
         if
@@ -155,8 +160,8 @@ impl Intersect for Triangle {
         let r = s.cross(e_1);
 
         let mut b = [0.; 3];
-        b[0] = s.scalar_mul(q);
-        b[1] = r.scalar_mul(ray.dir);
+        b[0] = s.dotp(q);
+        b[1] = r.dotp(ray.dir);
         b[2] = 1.0 - b[0] - b[1];
 
         // Intersected outside triangle?
@@ -164,14 +169,14 @@ impl Intersect for Triangle {
             //print!("░");
             return Miss;
         }
-        let t = e_2.scalar_mul(r);
+        let t = e_2.dotp(r);
         match t >= 0. {
             // Hit
             true => Hit {
                 point: ray.at(t),
                 normal: n,
                 t,
-                color: self.col
+                color: self.col,
             },
             // Miss
             false => Miss,
@@ -191,7 +196,12 @@ impl<'a> Intersect for Geometry<'a> {
             .iter()
             .map(|obj| obj.intersect(&ray))
             .filter_map(|r| match r {
-                Hit { point, normal, t, color} => Some((point, normal, t, color)),
+                Hit {
+                    point,
+                    normal,
+                    t,
+                    color,
+                } => Some((point, normal, t, color)),
                 Miss => None,
             })
             .filter(|(_p, _n, t, color)| *t >= ray.min && *t <= ray.max)
@@ -202,7 +212,12 @@ impl<'a> Intersect for Geometry<'a> {
             });
 
         match res {
-            Some((point, normal, t, color)) => Hit { point, normal, t, color },
+            Some((point, normal, t, color)) => Hit {
+                point,
+                normal,
+                t,
+                color,
+            },
             None => Miss,
         }
     }
@@ -215,7 +230,12 @@ impl Intersect for TriGeometry {
             .par_iter()
             .map(|obj| obj.intersect(ray))
             .filter_map(|r| match r {
-                Hit { point, normal, t, color } => Some((point, normal, t, color)),
+                Hit {
+                    point,
+                    normal,
+                    t,
+                    color,
+                } => Some((point, normal, t, color)),
                 Miss => None,
             })
             .filter(|(_p, _n, t, color)| *t >= ray.min && *t <= ray.max)
@@ -230,7 +250,12 @@ impl Intersect for TriGeometry {
         }
 
         match res {
-            Some((point, normal, t, color)) => Hit { point, normal, t, color },
+            Some((point, normal, t, color)) => Hit {
+                point,
+                normal,
+                t,
+                color,
+            },
             None => Miss,
         }
     }

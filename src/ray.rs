@@ -60,13 +60,7 @@ const MSAA_16: [[f64; 2]; 16] = [
     [0.0625, 0.0],
 ];
 
-const MSAA_SAMPLES: [&[[f64; 2]]; 5] = [
-    &MSAA_1,
-    &MSAA_2,
-    &MSAA_4,
-    &MSAA_8,
-    &MSAA_16,
-];
+const MSAA_SAMPLES: [&[[f64; 2]]; 5] = [&MSAA_1, &MSAA_2, &MSAA_4, &MSAA_8, &MSAA_16];
 
 pub trait RayGenerator {
     fn gen_ray(&self, pixel: Vec2) -> Ray;
@@ -78,15 +72,18 @@ pub trait RayGenerator {
                 4 => 2,
                 8 => 3,
                 16 => 4,
-                _ => panic!("Not a valid sampling size. 2^0=1 .. 2^4=16 is supported.")
+                _ => panic!("Not a valid sampling size. 2^0=1 .. 2^4=16 is supported."),
             };
             MSAA_SAMPLES[idx]
         };
-        
-        samples.iter().map(|offset| {
-            let new_pixel = pixel + Vec2(*offset);
-            self.gen_ray(new_pixel)
-        }).collect()
+
+        samples
+            .iter()
+            .map(|offset| {
+                let new_pixel = pixel + Vec2(*offset);
+                self.gen_ray(new_pixel)
+            })
+            .collect()
     }
 }
 

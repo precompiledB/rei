@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Sub, Neg};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec2(pub [f64; 2]);
@@ -16,10 +16,7 @@ impl Add<Vec2> for Vec2 {
     type Output = Vec2;
 
     fn add(self, rhs: Vec2) -> Self::Output {
-        Vec2([
-            self.0[0] + rhs.0[0],
-            self.0[1] + rhs.0[1],
-        ])
+        Vec2([self.0[0] + rhs.0[0], self.0[1] + rhs.0[1]])
     }
 }
 
@@ -44,7 +41,7 @@ impl Vec3 {
         Self(self.0.map(|x| x.abs()))
     }
 
-    pub fn scalar_mul(self, rhs: Vec3) -> f64 {
+    pub fn dotp(self, rhs: Vec3) -> f64 {
         self.0.iter().zip(rhs.0.iter()).map(|(a, b)| a * b).sum()
     }
 
@@ -101,5 +98,13 @@ impl Mul<Vec3> for f64 {
 
     fn mul(self, rhs: Vec3) -> Self::Output {
         Vec3(rhs.0.map(|x| x * self))
+    }
+}
+
+impl Neg for Vec3 {
+    type Output = Vec3;
+
+    fn neg(self) -> Self::Output {
+        Vec3(self.0.map(|x| -x))
     }
 }

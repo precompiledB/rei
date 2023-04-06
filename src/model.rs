@@ -16,7 +16,7 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
 
     for (idx, mesh) in document.meshes().enumerate() {
         let mut vertices = Vec::new();
-        let mut indices: Vec<(u16, u16, u16, [u8;3])> = Vec::new();
+        let mut indices: Vec<(u16, u16, u16, [u8; 3])> = Vec::new();
 
         dbg!(idx);
 
@@ -51,7 +51,12 @@ pub fn load_from_gltf<T: AsRef<str>>(path: T) -> Vec<Triangle> {
             }
 
             // every indices el represents one colour: associate color attributes here
-            let color = primitive.material().pbr_metallic_roughness().base_color_factor().map(|x| x * 255.).map(|x| x as u8);
+            let color = primitive
+                .material()
+                .pbr_metallic_roughness()
+                .base_color_factor()
+                .map(|x| x * 255.)
+                .map(|x| x as u8);
             let color = [color[0], color[1], color[2]];
 
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
