@@ -74,7 +74,7 @@ impl Intersect for Sphere {
                 let point = ray.at(t);
                 Hit {
                     point,
-                    normal: (point - self.position).normalize(),
+                    normal: -(point - self.position).normalize(),
                     t,
                     color: [0xd3, 0x68, 0x7d],
                 }

@@ -29,14 +29,15 @@ impl From<[u8; 3]> for Color {
     }
 }
 
-impl Into<[u8; 3]> for Color {
-    fn into(self) -> [u8; 3] {
-        [self.r, self.g, self.b]
+impl From<Color> for [u8; 3] {
+    fn from(val: Color) -> Self {
+        [val.r, val.g, val.b]
     }
 }
 
 pub struct PBRMaterial {
     color: Color,
+    specular_exponent: f64,
 }
 
 // page 105
@@ -78,19 +79,20 @@ pub fn refract_light(
     }
 }
 
-pub fn find_light_source(
-    incoming: Ray,
+/* pub fn light_source_from(
+    incoming: &Ray,
     point: Vec3,
     normal: Vec3,
-    light: PointLight
-) -> Option<Ray> {
-    None
-}
+    light: &PointLight,
+) -> Ray {
+    let light_dir = light.point - point;
+    Ray { pos: point, dir: light_dir, min: 0., max: f64::INFINITY }
+} */
 
 // TODO: emmisive
 
 pub struct PointLight {
     pub point: Vec3,
     pub color: Color,
-    pub intensity: f64
+    pub intensity: f64,
 }

@@ -12,3 +12,7 @@ indicatif = "0.17.3"
 #test_gltf = { path = "../test_gltf" }
 gltf = { version = "1.1.0", features = ["names", "KHR_materials_ior", "KHR_materials_transmission"] }
 rayon = "1.7.0"
+
+[profile.dev_gdb]
+inherits = "dev"
+opt-level = 1 # Use slightly better optimizations.
