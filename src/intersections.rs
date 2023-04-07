@@ -1,10 +1,11 @@
 use crate::maths::Vec3;
 use crate::ray::Ray;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator};
 use IntersectionResult::{Hit, Miss};
 
 pub enum IntersectionResult {
     Hit {
+        idx: usize, // Which object is hit?
         point: Vec3,
         normal: Vec3,
         t: f64,
@@ -73,6 +74,7 @@ impl Intersect for Sphere {
             x if x > 0. && t > 0.0 => {
                 let point = ray.at(t);
                 Hit {
+                    idx: 0,
                     point,
                     normal: -(point - self.position).normalize(),
                     t,
@@ -173,6 +175,7 @@ impl Intersect for Triangle {
         match t >= 0. {
             // Hit
             true => Hit {
+                idx: 0,
                 point: ray.at(t),
                 normal: n,
                 t,
@@ -189,7 +192,7 @@ b[] , and stores the distance to the intersection in t .
 Otherwise returns false and the other output parameters are
 undefined.*/
 
-impl<'a> Intersect for Geometry<'a> {
+/* impl<'a> Intersect for Geometry<'a> {
     fn intersect(&self, ray: &Ray) -> IntersectionResult {
         let res = self
             .objects
@@ -221,27 +224,29 @@ impl<'a> Intersect for Geometry<'a> {
             None => Miss,
         }
     }
-}
+} */
 
 impl Intersect for TriGeometry {
     fn intersect(&self, ray: &Ray) -> IntersectionResult {
         let res = self
             .objects
             .par_iter()
-            .map(|obj| obj.intersect(ray))
-            .filter_map(|r| match r {
+            .enumerate()
+            .map(|(idx, obj)| (idx, obj.intersect(ray)))
+            .filter_map(|(obj_idx, r)| match r {
                 Hit {
+                    idx: _, // this is always 0, cuz one obj is scanned; ignore this idx then 
                     point,
                     normal,
                     t,
                     color,
-                } => Some((point, normal, t, color)),
+                } => Some((obj_idx, point, normal, t, color)),
                 Miss => None,
             })
-            .filter(|(_p, _n, t, color)| *t >= ray.min && *t <= ray.max)
+            .filter(|(_idx, _p, _n, t, _color)| *t >= ray.min && *t <= ray.max)
             .min_by(|a, b| {
-                let t_1 = a.2;
-                let t_2 = b.2;
+                let t_1 = a.3;
+                let t_2 = b.3;
                 t_1.total_cmp(&t_2)
             });
 
@@ -250,7 +255,8 @@ impl Intersect for TriGeometry {
         }
 
         match res {
-            Some((point, normal, t, color)) => Hit {
+            Some((idx, point, normal, t, color)) => Hit {
+                idx,
                 point,
                 normal,
                 t,

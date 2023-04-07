@@ -8,7 +8,7 @@ use crate::maths::{Vec2, Vec3};
 use crate::ray::{CameraFovDirection, PinholePerspective, RayGenerator};
 use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage};
 use indicatif::ProgressIterator;
-use light_transport::{Color, PointLight, reflect_light};
+use light_transport::{reflect_light, Color, PointLight};
 use ray::Ray;
 use rayon::prelude::*;
 
@@ -77,7 +77,7 @@ fn main() -> image::error::ImageResult<()> {
         col: [0xd3, 0x68, 0x7d],
     };
 
-    let tris = model::load_from_gltf("models/sphere.gltf");
+    let tris = model::load_from_gltf("models/complex2.gltf");
     let geom = TriGeometry { objects: tris };
 
     let lights = vec![PointLight {
@@ -86,11 +86,18 @@ fn main() -> image::error::ImageResult<()> {
         intensity: 1.,
     }];
 
-    let lights = vec![PointLight {
-        point: Vec3([1., 0., 1.]),
-        color: [255, 255, 255].into(),
-        intensity: 1.,
-    }];
+    let lights = vec![
+        PointLight { // blue
+            point: Vec3([1., 0., 1.]),
+            color: [0, 56, 168].into(),
+            intensity: 1.,
+        },
+        PointLight { // pink
+            point: Vec3([-2., 0., 2.]),
+            color: [214, 2, 112].into(),
+            intensity: 1.,
+        }
+    ];
 
     for px_y in (0..height).progress() {
         for px_x in 0..width {
@@ -131,6 +138,7 @@ where
         .map(|r| (geom.intersect(&r), r))
         .map(|(res, ray)| match res {
             IntersectionResult::Hit {
+                idx,
                 point,
                 normal,
                 t,
@@ -141,27 +149,64 @@ where
                 let mut diffuse_intensity = 0.;
                 let mut specular_intensity = 0.;
                 let specular_exponent = 10.; // rubber
-                // TODO: add albedo
+                                             // TODO: add albedo
                 for l in lights {
                     let light_dir = (l.point - point).normalize();
-                    //if let IntersectionResult::Miss = geom.intersect(&light_ray) {
-                        // brightness
-                    
+                    let light_distance = (l.point - point).length();
+                    let shadow_orig = {
+                        let vf = if light_dir.dotp(normal) < 0. {
+                            -1.
+                        } else {
+                            1.
+                        };
+                        point + vf * normal * 1e-4
+                    };
+                    let light_ray = Ray {
+                        dir: light_dir,
+                        pos: shadow_orig,
+                        min: 0.,
+                        max: f64::INFINITY,
+                    };
+                    let current_obj = idx; 
+
+                    /*match geom.intersect(&light_ray) {
+                        IntersectionResult::Hit { idx, .. } if idx != current_obj => continue,
+                        _ => {}
+                    }*/
+                    // brightness
+
+                    let light_intersect_res = geom.intersect(&light_ray);
+                    if let IntersectionResult::Hit { point, .. } = light_intersect_res
+                    {
+                        if (point - shadow_orig).length() < light_distance {
+                            continue;
+                        }
+                    }
+
                     //dbg!(light_dir);
                     //dbg!(normal, normal.length());
 
-                        diffuse_intensity += (l.intensity * f64::max(0., light_dir.dotp(-normal)));
-                        
-                        // TODO: rwrok reflect func.
-                        let reflected_ray = reflect_light(Ray {dir: light_dir, pos: point, min: 0., max: f64::INFINITY }, normal, point);
-                        specular_intensity += f64::max(0., reflected_ray.dir.dotp(ray.dir)).powf(specular_exponent) * l.intensity;
-                        //};
-                }
+                    diffuse_intensity += (l.intensity * f64::max(0., light_dir.dotp(-normal)));
+
+                    // TODO: rwrok reflect func.
+                    let reflected_ray = reflect_light(
+                        light_ray,
+                        normal,
+                        point,
+                    );
+                    specular_intensity += f64::max(0., reflected_ray.dir.dotp(ray.dir))
+                        .powf(specular_exponent)
+                        * l.intensity;
+
                     
+                }
+
+                diffuse_intensity /= lights.len() as f64;
+                specular_intensity/= lights.len() as f64;
+
                 let col = col.map(|x| x * diffuse_intensity);
                 let specs = [255.; 3].map(|x| x * specular_intensity);
-                ([col[0] + specs[0], col[1] + specs[1], col[2] + specs[2],]).map(|x| x as u8)
-
+                ([col[0] + specs[0], col[1] + specs[1], col[2] + specs[2]]).map(|x| x as u8)
 
                 //dbg!(normal);
                 /*
@@ -169,7 +214,6 @@ where
                 let n = f64::max(0.0, n);
                 let col = color.map(|x| x as f64 * n).map(|x| x as u8);
                 */
-                
             }
             IntersectionResult::Miss => [0xA3, 0xE4, 0xD7],
         })

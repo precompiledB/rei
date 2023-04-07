@@ -1,5 +1,6 @@
 use crate::{maths::Vec3, ray::Ray};
 
+#[derive(Debug, Clone)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -32,6 +33,12 @@ impl From<[u8; 3]> for Color {
 impl From<Color> for [u8; 3] {
     fn from(val: Color) -> Self {
         [val.r, val.g, val.b]
+    }
+}
+
+impl From<Color> for [f64; 3] {
+    fn from(val: Color) -> Self {
+        [val.r, val.g, val.b].map(|x| x as f64)
     }
 }
 
