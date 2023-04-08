@@ -154,7 +154,7 @@ impl From<[u8; 3]> for PBRMaterial {
     }
 }
 
-// page 105
+// ISBN: 978-1-4842-7185-8 page 105
 pub fn reflect_light(incoming: &Ray, normal: Vec3, point: Vec3) -> Ray {
     let dir = incoming.dir - 2. * incoming.dir.dotp(normal) * normal;
     Ray {
@@ -167,7 +167,7 @@ pub fn reflect_light(incoming: &Ray, normal: Vec3, point: Vec3) -> Ray {
 
 const IOR_AIR: f64 = 1.; // roughly that shit
 
-// page 106 onwards
+// ISBN: 978-1-4842-7185-8 page 106 onwards
 pub fn refract_light(
     incoming: &Ray,
     normal: Vec3,

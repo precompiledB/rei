@@ -87,58 +87,8 @@ impl Intersect for Sphere {
 }
 
 impl Intersect for Triangle {
-    /*fn intersect(&self, ray: Ray) -> IntersectionResult {
-
-
-
-
-        let plane_normal = {
-            let a = self.vertices[1] - self.vertices[0];
-            let b = self.vertices[2] - self.vertices[0];
-            let c = a.cross(b);
-            c.normalize()
-        };
-
-        let distance = plane_normal.scalar_mul(self.vertices[0]);
-
-        let t = - ((plane_normal.scalar_mul(ray.pos) + distance) /
-            plane_normal.scalar_mul(ray.dir));
-
-        let p = ray.pos + (ray.dir * t);
-
-
-        let edges = [
-            self.vertices[1] - self.vertices[0],
-            self.vertices[2] - self.vertices[1],
-            self.vertices[0] - self.vertices[2]
-        ];
-
-        let c = [
-            p - self.vertices[0],
-            p - self.vertices[1],
-            p - self.vertices[2]
-        ];
-
-        let q = [
-            edges[0].cross(c[0]),
-            edges[1].cross(c[1]),
-            edges[2].cross(c[2])
-        ].map(|x| plane_normal.scalar_mul(x));
-
-        if q.iter().all(|x: &f64| x > &0.0) {
-            Hit {
-                t,
-                point: ray.at(t),
-                normal: plane_normal
-            }
-        } else {
-            Miss
-        }
-    }*/
-
-    // https://graphicscodex.com/Sample2-RayTriangleIntersection.pdf
     fn intersect(&self, ray: &Ray) -> IntersectionResult {
-        let eps = 1e-4;
+        //let eps = 1e-4;
 
         // edge vectors
         let e_1 = self.vertices[1] - self.vertices[0];

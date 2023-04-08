@@ -12,12 +12,6 @@ use light_transport::{reflect_light, Color, PointLight, FColor, refract_light, P
 use ray::Ray;
 use rayon::prelude::*;
 
-// https://raytracing.github.io/books/RayTracingInOneWeekend.html#rays,asimplecamera,andbackground/therayclass
-// https://stackoverflow.com/questions/349050/calculating-a-lookat-matrix
-// source for intersections: https://www.lighthouse3d.com/tutorials/maths/*
-// https://github.com/ssloy/tinyraytracer/wiki/Part-1:-understandable-raytracing#understandable-raytracing-in-256-lines-of-bare-c
-// https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays.html
-
 mod camera;
 mod intersections;
 mod light_transport;
@@ -26,7 +20,7 @@ mod model;
 mod ray;
 
 const SAMPLES: usize = 2;
-const LIGHT_PATHS: usize = 8;
+const LIGHT_PATHS: usize = 2;
 
 fn main() -> image::error::ImageResult<()> {
     // Create image and get the dimensions
@@ -97,11 +91,11 @@ fn main() -> image::error::ImageResult<()> {
             point: Vec3([1., 0., 1.]),
             color: [0, 56, 168].into(),
             intensity: 1.,
-        }, */
+        },*/
         PointLight { //white
-            point: Vec3([3., 0., 0.5]),
+            point: Vec3([0., 0., 0.5]),
             color: [255, 255, 255].into(),
-            intensity: 1.,
+            intensity: 1.0,
         },
     ];
 
