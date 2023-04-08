@@ -1,5 +1,5 @@
 # Raytracer in Rust
-##### Pascal E. Botzum & J. Leander Zellentin
+##### Pascal Botzum & J. Leander Zellentin
 Following the guidelines of both the lecture and the Scratchapixel walkthrough, we created a Raytracing Engine with the focus of reading scenes out of GLTF files. We chose to narrow out focus GLTF as it has support for storing all the different necessary aspects of a scene, such as animations, textures and bones. GLTF is also open source, regularly updated and can be used in many different 3D Software.
 
 ## Features
