@@ -1,11 +1,20 @@
+use std::ops::{Mul, Add, AddAssign};
+
 use crate::{maths::Vec3, ray::Ray};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
     pub a: u8,
+}
+impl Color {
+    pub fn to_fcolor(&self) -> FColor {
+       let arr = [self.r, self.g, self.b];
+       FColor { rgb: arr.map(|x| (x as f64) / 256. )
+     } 
+    }
 }
 
 impl From<[u8; 4]> for Color {
@@ -42,13 +51,104 @@ impl From<Color> for [f64; 3] {
     }
 }
 
+impl Mul<f64> for Color {
+    type Output = Color;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        let scale = |x| x as f64 / 256.;
+        let rescale = |x| (x * 256.) as u8;
+
+        let col: [u8; 3] = self.into();        
+        col.map(scale).map(|x| x * rhs).map(rescale).into()
+    }
+}
+
+impl Add<Color> for Color {
+    type Output = Color;
+
+    fn add(self, rhs: Color) -> Self::Output {
+        Color {
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
+            a: self.a + rhs.a,
+        }
+    }
+}
+
+impl AddAssign for Color {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FColor {
+    pub rgb: [f64; 3],
+}
+
+impl FColor {
+    pub fn to_color(self) -> Color {
+        let arr = self.rgb.map(|x| (x * 256.) as u8);
+        Color::from(arr)
+    }
+}
+
+impl From<[f64; 3]> for FColor {
+    fn from(value: [f64; 3]) -> Self {
+        Self { rgb: value }
+    }
+}
+
+impl Mul<f64> for FColor {
+    type Output = FColor;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        FColor { rgb: self.rgb.map(|x| x * rhs) }
+    }
+}
+
+impl Mul<FColor> for FColor {
+    type Output = FColor;
+
+    fn mul(self, rhs: FColor) -> Self::Output {
+
+        FColor { rgb: [
+            self.rgb[0] * rhs.rgb[0],
+            self.rgb[1] * rhs.rgb[1],
+            self.rgb[2] * rhs.rgb[2],
+        ] }
+    }
+}
+
+impl Add<FColor> for FColor {
+    type Output = FColor;
+
+    fn add(self, rhs: FColor) -> Self::Output {
+        FColor { rgb: [
+            self.rgb[0] + rhs.rgb[0],
+            self.rgb[1] + rhs.rgb[1],
+            self.rgb[2] + rhs.rgb[2],
+        ] }
+    }
+}
+
+impl AddAssign for FColor {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
 pub struct PBRMaterial {
-    color: Color,
-    specular_exponent: f64,
+    color: FColor,
+    //specular_exponent: f64,
+    metallic_factor: f64, 
+    ior: f64,
+    transmissive: f64
 }
 
 // page 105
-pub fn reflect_light(incoming: Ray, normal: Vec3, point: Vec3) -> Ray {
+pub fn reflect_light(incoming: &Ray, normal: Vec3, point: Vec3) -> Ray {
     let dir = incoming.dir - 2. * incoming.dir.dotp(normal) * normal;
     Ray {
         pos: point,
@@ -62,13 +162,12 @@ const IOR_AIR: f64 = 1.; // roughly that shit
 
 // page 106 onwards
 pub fn refract_light(
-    incoming: Ray,
+    incoming: &Ray,
     normal: Vec3,
     point: Vec3,
-    eta_in: f64,
-    eta_out: f64,
+    ior: f64
 ) -> Option<Ray> {
-    let eta = eta_in / eta_out; // relative ior
+    let eta = ior; // relative ior
     let c1 = -incoming.dir.dotp(normal); // cos( index of reflection)
     let w = eta * c1;
     let c2m = (w - eta) * (w + eta); // cos^2 (outgoing iof) - 1
