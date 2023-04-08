@@ -50,3 +50,7 @@ Changes to make in Rust:
  - Where and how to save your resulting PNG `main.rs`
  - Implicit shapes and their position
  - MSAA sample count
+
+## More Documentation
+
+For more documentation please see the `Documentaion/Documentation.md`.
