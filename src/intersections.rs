@@ -1,4 +1,4 @@
-use crate::maths::Vec3;
+use crate::{maths::Vec3, light_transport::PBRMaterial};
 use crate::ray::Ray;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator};
 use IntersectionResult::{Hit, Miss};
@@ -9,7 +9,7 @@ pub enum IntersectionResult {
         point: Vec3,
         normal: Vec3,
         t: f64,
-        color: [u8; 3],
+        color: PBRMaterial,
     },
     Miss,
 }
@@ -36,7 +36,7 @@ pub struct Sphere {
 #[derive(Copy, Clone, Debug)]
 pub struct Triangle {
     pub vertices: [Vec3; 3],
-    pub col: [u8; 3],
+    pub pbr_mat: PBRMaterial,
 }
 
 pub struct Geometry<'a> {
@@ -78,7 +78,7 @@ impl Intersect for Sphere {
                     point,
                     normal: -(point - self.position).normalize(),
                     t,
-                    color: [0xd3, 0x68, 0x7d],
+                    color: [0xd3, 0x68, 0x7d].into(),
                 }
             }
             _ => Miss,
@@ -179,7 +179,7 @@ impl Intersect for Triangle {
                 point: ray.at(t),
                 normal: n,
                 t,
-                color: self.col,
+                color: self.pbr_mat,
             },
             // Miss
             false => Miss,

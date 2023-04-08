@@ -139,12 +139,19 @@ impl AddAssign for FColor {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct PBRMaterial {
-    color: FColor,
+    pub color: FColor,
     //specular_exponent: f64,
-    metallic_factor: f64, 
-    ior: f64,
-    transmissive: f64
+    pub metallic_factor: f64, 
+    pub ior: f64,
+    pub transmissive: f64
+}
+
+impl From<[u8; 3]> for PBRMaterial {
+    fn from(value: [u8; 3]) -> Self {
+        PBRMaterial { color: Color::from(value).to_fcolor(), metallic_factor: 0.0, ior: 1.0, transmissive: 0.0 }
+    }
 }
 
 // page 105

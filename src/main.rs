@@ -8,7 +8,7 @@ use crate::maths::{Vec2, Vec3};
 use crate::ray::{CameraFovDirection, PinholePerspective, RayGenerator};
 use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Rgb, RgbImage};
 use indicatif::ProgressIterator;
-use light_transport::{reflect_light, Color, PointLight, FColor, refract_light};
+use light_transport::{reflect_light, Color, PointLight, FColor, refract_light, PBRMaterial};
 use ray::Ray;
 use rayon::prelude::*;
 
@@ -25,7 +25,7 @@ mod maths;
 mod model;
 mod ray;
 
-const SAMPLES: usize = 8;
+const SAMPLES: usize = 2;
 const LIGHT_PATHS: usize = 8;
 
 fn main() -> image::error::ImageResult<()> {
@@ -62,7 +62,7 @@ fn main() -> image::error::ImageResult<()> {
                     Vec3([-0.5, -0.5 + x, -15.]),
                     Vec3([0.5, 0. + x, -15.]),
                 ],
-                col: [0xd3, 0x68, 0x7d],
+                pbr_mat: [0xd3, 0x68, 0x7d].into(),
             }
         })
         .collect::<Vec<Triangle>>();
@@ -75,10 +75,10 @@ fn main() -> image::error::ImageResult<()> {
             Vec3([0., 0.2, -2.0]),
             Vec3([0.2, 0., -2.2]),
         ],
-        col: [0xd3, 0x68, 0x7d],
+        pbr_mat: [0xd3, 0x68, 0x7d].into(),
     };
 
-    let tris = model::load_from_gltf("models/planes.gltf");
+    let tris = model::load_from_gltf("models/complex2.gltf");
     let geom = TriGeometry { objects: tris };
 
     let lights = vec![PointLight {
@@ -168,7 +168,7 @@ where
     Color::from(rgb)
 }
 
-fn shade_with<U>(mat_col: Color, hit_point: Vec3, hit_normal: Vec3, hit_from: &Ray, lights: &Vec<PointLight>, geom: &U, light_path_num: usize) -> FColor
+fn shade_with<U>(mat_col: PBRMaterial, hit_point: Vec3, hit_normal: Vec3, hit_from: &Ray, lights: &Vec<PointLight>, geom: &U, light_path_num: usize) -> FColor
 where U: Intersect
 {
     if light_path_num == LIGHT_PATHS {
@@ -226,11 +226,11 @@ where U: Intersect
         };
 
         if let Some(col) = reflected_col {
-            //hit_color += col;
+            hit_color += col;
         }
 
         // refraction
-        let refracted_ray = refract_light(hit_from, hit_normal, hit_point, 1.0, 1.0);
+        let refracted_ray = refract_light(hit_from, hit_normal, hit_point, mat_col.ior);
         if refracted_ray.is_some() {
             let refracted_ray = refracted_ray.unwrap();
             let refracted_ray = {
@@ -275,7 +275,7 @@ where U: Intersect
         // diffuse
         let albedo = FColor::from([0.18,0.18,0.18]);
         let color = /*albedo **/ std::f64::consts::FRAC_1_PI * light.intensity * f64::max(0., hit_normal.dotp(-light_dir));
-        let color = light_color * color * (mat_col.to_fcolor() * 2.);
+        let color = light_color * color * (mat_col.color * 2.);
         hit_color += color;
 
         // specular
@@ -285,11 +285,8 @@ where U: Intersect
             hit_point,
         );
         hit_color += FColor{ rgb: [1., 1., 1.] } * f64::max(0., reflected_ray.dir.dotp(hit_from.dir))
-            .powf(specular_exponent)
+            .powf(specular_exponent) * mat_col.metallic_factor
             * light.intensity * 0.2;
-
-        
-        
     }
 
     hit_color
